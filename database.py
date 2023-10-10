@@ -12,11 +12,6 @@ db_name = 'postgres'
 def create_db():
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
-        cur.execute("create table if not exists projects("
-                    "id serial primary key, "
-                    "project text not null, "
-                    "project_id text)")
-        
         cur.execute("create table if not exists developers("
                     "id serial PRIMARY KEY, "
                     "chat_id text, "
@@ -24,68 +19,27 @@ def create_db():
                     "name text not null, "
                     "youtracker_id text not null)")
         
-        cur.execute("create table if not exists working_tasks("
-                    "id serial primary key, "
-                    "project_id int, "
-                    "task_id text, "
-                    "task text, "
-                    "resolved text,"
-                    "constraint fk_project_id foreign key (project_id) references projects(id))")
         
         cur.execute("create table if not exists working_time("
                     "working_time_id serial PRIMARY KEY, "
                     "developer_id int not null, "
-                    "task_id int not null, "
-                    "working_date text, "
-                    "start_time text, "
-                    "end_time text, "
-                    "total_working_time text, "
-                    "constraint fk_developer_id foreign key (developer_id) references developers(id), "
-                    "constraint fk_task_id foreign key (task_id) references working_tasks(id))")
+                    "working_date date, "
+                    "start_time time, "
+                    "end_time time, "
+                    "total_working_time time, "
+                    "constraint fk_developer_id foreign key (developer_id) references developers(id))")
         
-        cur.execute("create table if not exists developer_acesses("
-                    "id serial not null, "
+        cur.execute("create table if not exists pauses("
+                    "pause_id serial PRIMARY KEY, "
+                    "pause_reason text, "
                     "developer_id int not null, "
-                    "project_id int, "
-                    "constraint fk_developer_id foreign key (developer_id) references developers(id), "
-                    "constraint fk_project_id foreign key (project_id) references projects(id))")
+                    "total_pause_time time, "
+                    "constraint fk_developer_id foreign key (developer_id) references developers(id))")
+        
         
         db.commit()
     db.close()
 
-def insert_projects():
-    db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
-    project_ids, project_names = yt.get_json_projects()
-    with db.cursor() as cur:
-        while project_names and project_ids:
-            project_id = (str)(project_ids.pop())
-            project_name = (str)(project_names.pop())
-            cur.execute("select * from projects where project_id = '{}'".format(project_id))
-            checker = cur.fetchone()
-            if not checker:
-                cur.execute("insert into projects(project, project_id) values('{}', '{}')".format(project_name, project_id))
-                print("project {} inserted". format(project_id))
-    db.commit()
-    db.close() 
-
-def insert_dev_accsesses(login: str, list_of_projects: list) -> None:
-    db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
-    with db.cursor() as cur:
-        for project in list_of_projects:
-            cur.execute("select * from developer_acesses where developer_id = (select id from developers where login = '{}') and project_id = (select id from projects where project = '{}')".format(login, project))
-            fetch_one = cur.fetchone()
-            if not fetch_one:
-                cur.execute("insert into developer_acesses(developer_id, project_id) values((select id from developers where login = '{}'), (select id from projects where project = '{}'));".format(login, project))
-        db.commit()
-    db.close()
-
-def get_task_text_by_id(id: int) -> str:  
-    db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
-    with db.cursor() as cur:
-        cur.execute("select task from working_tasks where id = {}".format(id))
-        data = cur.fetchone()
-        db.close()
-    return data
 
 async def insert_chat_id(chat_id: str, login: str) -> bool:
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
@@ -102,23 +56,6 @@ async def insert_chat_id(chat_id: str, login: str) -> bool:
             return True
 
 
-def insert_tasks():
-    db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
-    ids, tasks, projects, resolved = yt.get_jsons_tasks()
-    with db.cursor() as cur:
-        while ids and tasks:
-            project = (str)(projects.pop() + ' Team')
-            id = (str)(ids.pop())
-            task = (str)(tasks.pop())
-            resolved_data = (str)(resolved.pop())
-            cur.execute("select * from working_tasks where task_id = '{}';".format(id))
-            find_one = cur.fetchone()
-            if not find_one:
-                cur.execute("insert into working_tasks(project_id, task_id, task, resolved) values((select id from projects where project = %s), %s, %s, %s)", (project, id, task, resolved_data))
-                print("task with id: {} inserted". format(id))
-    db.commit()
-    db.close() 
-    
 def insert_developers():
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     logins, names, ids = yt.get_jsons_project_teams()
@@ -149,6 +86,42 @@ async def get_tasks(id):
     db.close()   
     return data
 
+async def get_statistics_per_day(id):
+    db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
+    today = datetime.date.today()
+    with db.cursor() as cur:
+        cur.execute("select working_date, sum(total_working_time) "
+                    "from working_time join developers on developer_id = developers.id where developers.chat_id = '{}' and working_date = '{}' group by working_date;".format(id, today))
+        data = cur.fetchall()
+    db.commit()
+    db.close()   
+    return data
+
+async def get_statistics_per_week(id):
+    db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
+    today = datetime.date.today()
+    one_week_ago = today - datetime.timedelta(days=7)
+    with db.cursor() as cur:
+        cur.execute("select working_date, sum(total_working_time) "
+                    "from working_time join developers on developer_id = developers.id where developers.chat_id = '{}' and working_date > '{}' group by working_date;".format(id, one_week_ago))
+        data = cur.fetchall()
+    db.commit()
+    db.close()   
+    return data
+
+async def get_statistics_per_month(id):
+    db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
+    today = datetime.date.today()
+    one_week_ago = today - datetime.timedelta(days=30)
+    with db.cursor() as cur:
+        cur.execute("select working_date, sum(total_working_time) "
+                    "from working_time join developers on developer_id = developers.id where developers.chat_id = '{}' and working_date > '{}' group by working_date order by working_date asc;".format(id, one_week_ago))
+        data = cur.fetchall()
+    db.commit()
+    db.close()   
+    return data
+
+
         
 def get_projects() -> list:
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
@@ -177,7 +150,16 @@ async def insert_time_info(chat_id: str, state: FSMContext, timedelta) -> None:
     with db.cursor() as cur:
         data = await state.get_data()
         date = (str)(datetime.datetime.now().date())
-        cur.execute("insert into working_time(developer_id, task_id, working_date, start_time, end_time, total_working_time) values((select id from developers where chat_id = '{}' limit 1), {}, '{}', '{}', '{}', '{}')".format(chat_id, data["task_id"], date, data['start_time'], data['end_time'], timedelta))
+        cur.execute("insert into working_time(developer_id, working_date, start_time, end_time, total_working_time) values((select id from developers where chat_id = '{}' limit 1), '{}', '{}', '{}', '{}')".format(chat_id, date, data['start_time'], data['end_time'], timedelta))
+        db.commit()
+    db.close()
+
+
+async def insert_pause_time_info(chat_id: str, state: FSMContext, time_difference) -> None:
+    db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
+    with db.cursor() as cur:
+        data = await state.get_data()
+        cur.execute("insert into pauses(pause_reason, developer_id, total_pause_time) values('{}', (select id from developers where chat_id = '{}' limit 1), '{}')".format(data['pause_reason'], chat_id, time_difference))
         db.commit()
     db.close()
     

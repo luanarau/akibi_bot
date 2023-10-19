@@ -1,2 +1,2 @@
 # akibi_bot
-Bot for time-managment for akibi company
+time-managment Bot for akibi company

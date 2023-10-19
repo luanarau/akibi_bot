@@ -1,0 +1,30 @@
+version: '3.8'
+
+
+services:
+  bot:
+    build: ./
+    command: python bot.py
+    ports:
+      - '81:81'
+    depends_on:
+      - db
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: bal040102
+      POSTGRES_DB: postgres
+      POSTGRES_INITDB_ARGS: "-A md5"
+    
+
+  db:
+    restart: always
+    container_name: postgres
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: bal040102
+      POSTGRES_DB: postgres
+      POSTGRES_INITDB_ARGS: "-A md5"
+    ports:
+      - '5111:5111'

@@ -5,7 +5,7 @@ import youtrack_api as yt
 import bot as bot
 
 
-host = 'localhost'
+host = 'db'
 port = '5432'
 user = 'postgres'
 password = 'bal040102'

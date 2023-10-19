@@ -319,6 +319,7 @@ async def get_dev_statistics_to_solo_dev(login: str):
 async def remove_acc(chat_id: str):
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
-        cur.execute("update developers set chat_id = NULL where chat_id = '{}'".format(chat_id))
+        cur.execute("update developers set chat_id = null where chat_id = '{}'".format(chat_id))
+        cur.execute("update developers set is_admin = false where chat_id = '{}'".format(chat_id))
         db.commit()
     db.close()

@@ -124,8 +124,8 @@ async def start(message: types.Message, state: FSMContext):
 @dp.message(State_remove_acc.remove)
 async def start(message: types.Message, state: FSMContext):
     if message.text == 'ес':
-        db.remove_acc(message.chat.id)
-        await message.answer("Окей пока! Если хочешь опять начать напиши /start", reply_markup=kb.keyboard_start)
+        await db.remove_acc(message.chat.id)
+        await message.answer("Окей пока! Если хочешь опять начать напиши /start", reply_markup=ReplyKeyboardRemove())
         await message.answer_sticker(r'CAACAgIAAxkBAAEBbPJlJ6i7YmB2Ie-1ifw1aHRxanx2qgACRRoAAphU0Ep9f9XploWBYDAE')
         await state.clear()
     elif message.text == 'ноу':
@@ -135,7 +135,7 @@ async def start(message: types.Message, state: FSMContext):
             await message.answer("ну и ладно...", reply_markup=kb.keyboard_start_admin)
         await state.clear()
     else:
-        await message.answer("ты долбаеб?")
+        await message.answer("ты долбаеб, тебе сбросить учетку?", reply_markup=kb.keyboard_chose_admin)
         await message.answer_sticker(r'CAACAgIAAxkBAAEBgVZlL3tszdN_P9VhMQOw6M6qwuhWswACPxMAAtlwOEpSw_r2yt988jAE')
         
  
@@ -328,9 +328,10 @@ async def info_dev(message: types.Message, text: str):
     admins = await db.all_admins()
     my_login = await db.get_my_login(message.chat.id)
     for data in admins:
-        if (int)(data[0]) != message.chat.id:
-            await bot.send_message(chat_id=(int)(data[0]), text='{} {}'.format(my_login[0], text))
-    
+        if data[0]:
+            if (int)(data[0]) != message.chat.id:
+                await bot.send_message(chat_id=(int)(data[0]), text='{} {}'.format(my_login[0], text))
+        
 @dp.message(MyFilter('пауза'), State_timer.start_time)
 async def set_pause(message: types.Message, state: FSMContext):
     await state.update_data(end_time = datetime.datetime.now().time().replace(microsecond=0))

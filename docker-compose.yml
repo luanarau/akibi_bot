@@ -27,4 +27,4 @@ services:
       POSTGRES_DB: postgres
       POSTGRES_INITDB_ARGS: "-A md5"
     ports:
-      - '5111:5111'
+      - '5432:5432'

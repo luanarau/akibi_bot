@@ -165,7 +165,7 @@ async def chose_time(message: types.Message, state: FSMContext):
         await state.set_state(State_choose_schedule.chose_day)
     else:
         await message.answer_sticker(r'CAACAgIAAxkBAAEBbNJlJ6IDTcw9lnZ9b8TCU0LMVg-deQACHgADaudPF-sCqDIPF6zoMAQ')
-        await message.answer("Для кого кнопки придуманы, долбаеб?", reply_markup=kb.keyboard_chose_day)
+        await message.answer("Для кого кнопки придуманы, долбаеб?")
 
 
 @dp.message(MyFilter('посмотреть статистику'))

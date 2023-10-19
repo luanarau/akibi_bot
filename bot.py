@@ -184,7 +184,7 @@ async def start(message: types.Message):
         result = '\n'.join([f'День: {item[0]}, Время работы: {str(item[1])}' for item in data])
     else:
         result = 'Пока ничего нет'
-    await message.answer("Статистика за день:\n{}".format(result), reply_markup=kb.keyboard_statistics)
+    await message.answer("Статистика за день:\n{}".format(result))
     
 
 @dp.message(MyFilter('статистика за неделю'), State_timer.check_statistics)
@@ -194,7 +194,7 @@ async def start(message: types.Message):
         result = '\n'.join([f'День: {item[0]}, Время работы: {str(item[1])}' for item in data])
     else:
         result = 'Пока ничего нет'
-    await message.answer("Статистика за неделю:\n{}".format(result), reply_markup=kb.keyboard_statistics)
+    await message.answer("Статистика за неделю:\n{}".format(result))
 
    
 @dp.message(MyFilter('статистика за месяц'), State_timer.check_statistics)
@@ -204,7 +204,7 @@ async def start(message: types.Message):
         result = '\n'.join([f'День: {item[0]}, Время работы: {str(item[1])}' for item in data])
     else:
         result = 'Пока ничего нет'
-    await message.answer("Статистика за месяц:\n{}".format(result), reply_markup=kb.keyboard_statistics)
+    await message.answer("Статистика за месяц:\n{}".format(result))
 
 
 @dp.message(MyFilter('статистика разработчиков'), State_timer.check_statistics)

@@ -33,6 +33,9 @@ class State_timer(StatesGroup):
 class State_choose_schedule(StatesGroup):
     chose_day = State()
     chose_time = State()
+    
+class State_remove_acc(StatesGroup):
+    remove = State()
 
 
 
@@ -111,7 +114,32 @@ async def load_tag(message: types.Message, state: FSMContext) -> None:
     else:
         await message.answer("Ввел хуйню какую-то, попробуй еще раз", kb.keyboard_before)
     
-    
+
+
+@dp.message(MyFilter('сброс учетки'))
+async def start(message: types.Message, state: FSMContext):
+    await message.answer("Ты уверен?", reply_markup=kb.keyboard_chose_admin)
+    await state.set_state(State_remove_acc.remove)   
+ 
+@dp.message(State_remove_acc.remove)
+async def start(message: types.Message, state: FSMContext):
+    if message.text == 'ес':
+        db.remove_acc(message.chat.id)
+        await message.answer("Окей пока! Если хочешь опять начать напиши /start", reply_markup=kb.keyboard_start)
+        await message.answer_sticker(r'CAACAgIAAxkBAAEBbPJlJ6i7YmB2Ie-1ifw1aHRxanx2qgACRRoAAphU0Ep9f9XploWBYDAE')
+        await state.clear()
+    elif message.text == 'ноу':
+        if not await db.is_admin(message.chat.id):
+            await message.answer("ну и ладно...", reply_markup=kb.keyboard_start)
+        else:
+            await message.answer("ну и ладно...", reply_markup=kb.keyboard_start_admin)
+        await state.clear()
+    else:
+        await message.answer("ты долбаеб?")
+        await message.answer_sticker(r'CAACAgIAAxkBAAEBgVZlL3tszdN_P9VhMQOw6M6qwuhWswACPxMAAtlwOEpSw_r2yt988jAE')
+        
+ 
+ 
 @dp.message(MyFilter('изменить распиание'))
 async def start(message: types.Message, state: FSMContext):
     await message.answer_sticker(r'CAACAgIAAxkBAAEBZsllJoVjc3n5KjTTrE_SdQxgZ2RNcQACKBYAAi8x4UvsAnm5hTjEHTAE')

@@ -10,7 +10,8 @@ kb_buttons_start = [
         [KeyboardButton(text="начать ебашить")],
         [KeyboardButton(text="посмотреть статистику")],
         [KeyboardButton(text="изменить распиание")],
-        [KeyboardButton(text="посмотреть расписание")]
+        [KeyboardButton(text="посмотреть расписание")],
+        [KeyboardButton(text="сброс учетки")]
 ]
 keyboard_start = ReplyKeyboardMarkup(keyboard = kb_buttons_start)
 
@@ -20,7 +21,8 @@ kb_buttons_start_admin = [
         [KeyboardButton(text="посмотреть статистику")],
         [KeyboardButton(text="изменить распиание")],
         [KeyboardButton(text="посмотреть расписание")],
-        [KeyboardButton(text="активные разрабы")]
+        [KeyboardButton(text="активные разрабы")],
+        [KeyboardButton(text="сброс учетки")]
 ]
 keyboard_start_admin = ReplyKeyboardMarkup(keyboard = kb_buttons_start_admin)
 

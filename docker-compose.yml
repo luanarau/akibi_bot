@@ -4,7 +4,7 @@ version: '3.8'
 services:
   bot:
     build: ./
-    command: python bot.py
+    command: python3 bot.py
     ports:
       - '81:81'
     depends_on:

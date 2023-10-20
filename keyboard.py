@@ -7,7 +7,7 @@ import database as db
 
 
 kb_buttons_start = [
-        [KeyboardButton(text="начать ебашить")],
+        [KeyboardButton(text="начать смену")],
         [KeyboardButton(text="посмотреть статистику")],
         [KeyboardButton(text="изменить распиание")],
         [KeyboardButton(text="посмотреть расписание")],
@@ -17,7 +17,7 @@ keyboard_start = ReplyKeyboardMarkup(keyboard = kb_buttons_start)
 
 
 kb_buttons_start_admin = [
-        [KeyboardButton(text="начать ебашить")],
+        [KeyboardButton(text="начать смену")],
         [KeyboardButton(text="посмотреть статистику")],
         [KeyboardButton(text="изменить распиание")],
         [KeyboardButton(text="посмотреть расписание")],
@@ -57,15 +57,33 @@ keyboard_statistics_admin = ReplyKeyboardMarkup(keyboard = kb_statistics_admin)
 
 kb_buttons_end = [
     [
-        KeyboardButton(text="закончить ебашить"),
-        KeyboardButton(text="пауза")
-    ],
+        KeyboardButton(text="закончить смену"),
+        KeyboardButton(text="пауза")],
+        [KeyboardButton(text="посмотреть статистику")],
+        [KeyboardButton(text="изменить распиание")],
+        [KeyboardButton(text="посмотреть расписание")]
 ]
 keyboard_end = types.ReplyKeyboardMarkup(
     keyboard = kb_buttons_end,
     resize_keyboard = True,
     input_field_placeholder = ""
 )
+
+kb_buttons_end_admin = [
+    [
+        KeyboardButton(text="закончить смену"),
+        KeyboardButton(text="пауза")],
+        [KeyboardButton(text="посмотреть статистику")],
+        [KeyboardButton(text="изменить распиание")],
+        [KeyboardButton(text="посмотреть расписание")],
+        [KeyboardButton(text="активные разрабы")]
+]
+keyboard_end_admin = types.ReplyKeyboardMarkup(
+    keyboard = kb_buttons_end_admin,
+    resize_keyboard = True,
+    input_field_placeholder = ""
+)
+
 
 kb_pause = [
     [
@@ -113,18 +131,6 @@ keyboard_chose_admin = ReplyKeyboardMarkup(
     resize_keyboard = True,
     input_field_placeholder = ""
 )
-
-kb_chose_admin = [[
-        KeyboardButton(text="ес"),
-        KeyboardButton(text="ноу"),
-]]
-
-keyboard_chose_admin = ReplyKeyboardMarkup(
-    keyboard = kb_chose_admin,
-    resize_keyboard = True,
-    input_field_placeholder = ""
-)
-
 
 def reply_builder():
     current_date = datetime.datetime.now()

@@ -16,23 +16,32 @@ import logging
 import sys
 
 
-class Authorization(StatesGroup):
+    
+class State_timer(StatesGroup):
+    
     tag = State()
     admin = State()
     admin_token = State()
-
     
-class State_timer(StatesGroup):
-    check_statistics = State()
+    start_bot = State()
+    check_statistics_on_shift = State()
+    check_statistics_not_on_shift = State()
     solo_dev = State()
+    
     start_time = State()
     pause_reason = State()
     pause_start_time = State()
     end_time = State()
     
-class State_choose_schedule(StatesGroup):
-    chose_day = State()
-    chose_time = State()
+    back_on_shift = State()
+    back_not_on_shift = State()
+    
+    chose_day_on_shift = State()
+    chose_day_not_on_shift = State()
+    chose_time_on_shift = State()
+    chose_time_not_on_shift = State()
+    
+    
     
 class State_remove_acc(StatesGroup):
     remove = State()
@@ -72,15 +81,16 @@ async def command_start_handler(message: types.Message, state: FSMContext) -> No
     await message.answer_sticker(r'CAACAgIAAxkBAAEBZk5lJnMTnPjXYKzHP88a_sRguf_0OAAC1xgAAm4m4UsFYy3CmOv8qzAE')
     if await db.authorize(message.from_user.id):
         await message.answer("У тебя нет учетной записи, но давай мы ее привяжем!\nВведи свой ник из youtracker'а:", reply_markup=ReplyKeyboardRemove())
-        await state.set_state(Authorization.tag)
+        await state.set_state(State_timer.tag)
     else:
         if not await db.is_admin(message.chat.id):
             await message.answer("Ты авторизован!", reply_markup = kb.keyboard_start)
         else:
             await message.answer("Ты авторизован!", reply_markup = kb.keyboard_start_admin)
+        await state.set_state(State_timer.start_bot)
             
             
-@dp.message(Authorization.tag)
+@dp.message(State_timer.tag)
 async def load_tag(message: types.Message, state: FSMContext) -> None:
     res = await db.insert_chat_id(message.from_user.id, message.text)
     if res:
@@ -88,29 +98,29 @@ async def load_tag(message: types.Message, state: FSMContext) -> None:
     else:
         await message.answer("Логин привязан", reply_markup=ReplyKeyboardRemove())
         await message.answer("Давай второй вопрос: Ты админ?", reply_markup=kb.keyboard_chose_admin)
-        await state.set_state(Authorization.admin)
+        await state.set_state(State_timer.admin)
         
 
-@dp.message(Authorization.admin)
+@dp.message(State_timer.admin)
 async def load_tag(message: types.Message, state: FSMContext) -> None:
     if (message.text == 'ес'):
-        await state.set_state(Authorization.admin_token)
+        await state.set_state(State_timer.admin_token)
         await message.answer("Введи свой токен:", reply_markup=kb.keyboard_before)
     elif (message.text == 'ноу'):   
-        await message.answer('Все супер, можешь спокойно ебашить', reply_markup=kb.keyboard_start)
-        await state.clear()
+        await message.answer('Все супер, можешь спокойно работать', reply_markup=kb.keyboard_start)
+        await state.set_state(State_timer.start_bot)
     else:
         await message.answer('Для кого кнопки придуманы, долбоеб?')
 
-@dp.message(Authorization.admin_token)
+@dp.message(State_timer.admin_token)
 async def load_tag(message: types.Message, state: FSMContext) -> None:
     if message.text == admin_token:
-        await message.answer("Заебись, теперь ты руководишь этим цирком", reply_markup=kb.keyboard_start_admin)
+        await message.answer("Поздравляю, теперь ты имеешь всю власть...", reply_markup=kb.keyboard_start_admin)
+        await state.set_state(State_timer.start_bot)
         await db.grant_admin(message.chat.id)
-        await state.clear()
     elif message.text == 'назад':
         await message.answer("Давай второй вопрос: Ты админ?", reply_markup=kb.keyboard_chose_admin)
-        await state.set_state(Authorization.admin)
+        await state.set_state(State_timer.admin)
     else:
         await message.answer("Ввел хуйню какую-то, попробуй еще раз", kb.keyboard_before)
     
@@ -140,14 +150,20 @@ async def start(message: types.Message, state: FSMContext):
         
  
  
-@dp.message(MyFilter('изменить распиание'))
+@dp.message(MyFilter('изменить распиание'), State_timer.start_time)
 async def start(message: types.Message, state: FSMContext):
     await message.answer_sticker(r'CAACAgIAAxkBAAEBZsllJoVjc3n5KjTTrE_SdQxgZ2RNcQACKBYAAi8x4UvsAnm5hTjEHTAE')
-    await state.set_state(State_choose_schedule.chose_day)
+    await state.set_state(State_timer.chose_day_on_shift)
+    await message.answer("Выбери день:", reply_markup=kb.keyboard_chose_day)
+    
+@dp.message(MyFilter('изменить распиание'), State_timer.start_bot)
+async def start(message: types.Message, state: FSMContext):
+    await message.answer_sticker(r'CAACAgIAAxkBAAEBZsllJoVjc3n5KjTTrE_SdQxgZ2RNcQACKBYAAi8x4UvsAnm5hTjEHTAE')
+    await state.set_state(State_timer.chose_day_not_on_shift)
     await message.answer("Выбери день:", reply_markup=kb.keyboard_chose_day)
 
     
-@dp.message(State_choose_schedule.chose_day)
+@dp.message(State_timer.chose_day_on_shift)
 async def chose_day(message: types.Message, state: FSMContext):
     date = message.text
     date_buttons_list, day_list = kb.reply_builder()
@@ -156,14 +172,35 @@ async def chose_day(message: types.Message, state: FSMContext):
         current_year = datetime.datetime.now().year
         await state.update_data(chose_day = f"{current_year}-{month}-{day}")
         await message.answer("Выбери время начала смены:", reply_markup=kb.keyboard_chose_time)
-        await state.set_state(State_choose_schedule.chose_time)
+        await state.set_state(State_timer.chose_time_on_shift)
     elif (date == 'Назад'):
-        await state.clear()
+        if not await db.is_admin(message.chat.id):
+            await message.answer("Возвращайся когда захочешь изменить свое расписание", reply_markup = kb.keyboard_end)
+        else:
+            await message.answer("Возвращайся когда захочешь изменить свое расписание", reply_markup = kb.keyboard_end_admin)
+        await message.answer_sticker(r'CAACAgIAAxkBAAEBbPJlJ6i7YmB2Ie-1ifw1aHRxanx2qgACRRoAAphU0Ep9f9XploWBYDAE')
+        await state.set_state(State_timer.start_time)
+    else:
+        await message.answer_sticker(r'CAACAgIAAxkBAAEBbNJlJ6IDTcw9lnZ9b8TCU0LMVg-deQACHgADaudPF-sCqDIPF6zoMAQ')
+        await message.answer("Для кого кнопки придуманы, долбаеб?")
+        
+@dp.message(State_timer.chose_day_not_on_shift)
+async def chose_day(message: types.Message, state: FSMContext):
+    date = message.text
+    date_buttons_list, day_list = kb.reply_builder()
+    if date in day_list:
+        day, month = date.split("-")
+        current_year = datetime.datetime.now().year
+        await state.update_data(chose_day = f"{current_year}-{month}-{day}")
+        await message.answer("Выбери время начала смены:", reply_markup=kb.keyboard_chose_time)
+        await state.set_state(State_timer.chose_time_not_on_shift)
+    elif (date == 'Назад'):
         if not await db.is_admin(message.chat.id):
             await message.answer("Возвращайся когда захочешь изменить свое расписание", reply_markup = kb.keyboard_start)
         else:
             await message.answer("Возвращайся когда захочешь изменить свое расписание", reply_markup = kb.keyboard_start_admin)
         await message.answer_sticker(r'CAACAgIAAxkBAAEBbPJlJ6i7YmB2Ie-1ifw1aHRxanx2qgACRRoAAphU0Ep9f9XploWBYDAE')
+        await state.set_state(State_timer.start_bot)
     else:
         await message.answer_sticker(r'CAACAgIAAxkBAAEBbNJlJ6IDTcw9lnZ9b8TCU0LMVg-deQACHgADaudPF-sCqDIPF6zoMAQ')
         await message.answer("Для кого кнопки придуманы, долбаеб?")
@@ -179,7 +216,7 @@ async def chose_day(message: types.Message, state: FSMContext):
     await message.answer("Расписание на ближайшую неделю:\n{}".format(result))
     
 
-@dp.message(State_choose_schedule.chose_time)
+@dp.message(State_timer.chose_time_on_shift)
 async def chose_time(message: types.Message, state: FSMContext):
     time = message.text
     time_list = ["8:00", "9:00", "10:00", "11:00", "12:00"]
@@ -190,11 +227,26 @@ async def chose_time(message: types.Message, state: FSMContext):
         formatted_time = end_time.strftime('%H:%M')
         await db.insert_dev_schedule(message, message.chat.id, state, formatted_time)
         await message.answer("Время изменено. Смена закончится в: {}".format(formatted_time), reply_markup=kb.keyboard_chose_day)
-        await state.set_state(State_choose_schedule.chose_day)
+        await state.set_state(State_timer.chose_day_on_shift)
     else:
         await message.answer_sticker(r'CAACAgIAAxkBAAEBbNJlJ6IDTcw9lnZ9b8TCU0LMVg-deQACHgADaudPF-sCqDIPF6zoMAQ')
         await message.answer("Для кого кнопки придуманы, долбаеб?")
 
+@dp.message(State_timer.chose_time_not_on_shift)
+async def chose_time(message: types.Message, state: FSMContext):
+    time = message.text
+    time_list = ["8:00", "9:00", "10:00", "11:00", "12:00"]
+    if time in time_list:
+        await state.update_data(chose_time = time)
+        start_time = datetime.datetime.strptime(time, '%H:%M')
+        end_time = start_time + timedelta(hours=8)
+        formatted_time = end_time.strftime('%H:%M')
+        await db.insert_dev_schedule(message, message.chat.id, state, formatted_time)
+        await message.answer("Время изменено. Смена закончится в: {}".format(formatted_time), reply_markup=kb.keyboard_chose_day)
+        await state.set_state(State_timer.chose_day_not_on_shift)
+    else:
+        await message.answer_sticker(r'CAACAgIAAxkBAAEBbNJlJ6IDTcw9lnZ9b8TCU0LMVg-deQACHgADaudPF-sCqDIPF6zoMAQ')
+        await message.answer("Для кого кнопки придуманы, долбаеб?")
 
 @dp.message(MyFilter('посмотреть статистику'))
 async def start(message: types.Message, state: FSMContext):
@@ -202,10 +254,9 @@ async def start(message: types.Message, state: FSMContext):
         await message.answer("Какую статистику хочешь посмотреть?", reply_markup=kb.keyboard_statistics)
     else:
         await message.answer("Какую статистику хочешь посмотреть?", reply_markup=kb.keyboard_statistics_admin)
-    await state.set_state(State_timer.check_statistics)
 
   
-@dp.message(MyFilter('статистика за день'), State_timer.check_statistics)
+@dp.message(MyFilter('статистика за день'))
 async def start(message: types.Message):
     data = await db.get_statistics_per_day(message.from_user.id)
     if data:
@@ -215,7 +266,7 @@ async def start(message: types.Message):
     await message.answer("Статистика за день:\n{}".format(result))
     
 
-@dp.message(MyFilter('статистика за неделю'), State_timer.check_statistics)
+@dp.message(MyFilter('статистика за неделю'))
 async def start(message: types.Message):
     data = await db.get_statistics_per_week(message.from_user.id)
     if data:
@@ -225,7 +276,7 @@ async def start(message: types.Message):
     await message.answer("Статистика за неделю:\n{}".format(result))
 
    
-@dp.message(MyFilter('статистика за месяц'), State_timer.check_statistics)
+@dp.message(MyFilter('статистика за месяц'))
 async def start(message: types.Message):
     data = await db.get_statistics_per_month(message.from_user.id)
     if data:
@@ -235,7 +286,7 @@ async def start(message: types.Message):
     await message.answer("Статистика за месяц:\n{}".format(result))
 
 
-@dp.message(MyFilter('статистика разработчиков'), State_timer.check_statistics)
+@dp.message(MyFilter('статистика разработчиков'), State_timer.start_bot)
 async def dev_statistics(message: types.Message, state: FSMContext):
     dev_statistics_work, dev_statistics_chill, dev_chill_reasons = await db.get_dev_statistics_to_admin()
     if dev_statistics_work:
@@ -255,10 +306,54 @@ async def dev_statistics(message: types.Message, state: FSMContext):
     else: 
         text_if_no_dev = ':)'
     keyboard, dev = kb.reply_builder_2()
-    await message.answer("Топ 3 работника этого цирка:\n{}\n\nТоп 3 прогульщика этого цирка:\n{}\n\nТоп 3 причины отдыха:\n{}\n\nЕсли хочешь увидеть статистику кого-нибудь определенного нажми на кнопку {}".format(top_3_workers, top_3_chillers, top_3_chill_reasons, text_if_no_dev), reply_markup=keyboard)
-    await state.set_state(State_timer.solo_dev)
+    await message.answer("Топ 3 работника (по рабочему времени):\n{}\n\nТоп 3 прогульщика (по времени отдыха):\n{}\n\nТоп 3 причины отдыха:\n{}\n\nЕсли хочешь увидеть статистику кого-нибудь определенного нажми на кнопку {}".format(top_3_workers, top_3_chillers, top_3_chill_reasons, text_if_no_dev), reply_markup=keyboard)
+    await state.set_state(State_timer.check_statistics_not_on_shift)
+        
+@dp.message(MyFilter('статистика разработчиков'), State_timer.start_time)
+async def dev_statistics(message: types.Message, state: FSMContext):
+    dev_statistics_work, dev_statistics_chill, dev_chill_reasons = await db.get_dev_statistics_to_admin()
+    if dev_statistics_work:
+        top_3_workers = '\n'.join([f'{item[0]}: {str(item[1])}' for item in dev_statistics_work])
+    else:
+        top_3_workers = 'Пока ничего нет'
+    if dev_statistics_chill:
+        top_3_chillers = '\n'.join([f'{item[0]}: {str(item[1])}' for item in dev_statistics_chill])
+    else:
+        top_3_chillers = 'Пока ничего нет'
+    if dev_chill_reasons:
+        top_3_chill_reasons = '\n'.join([f'{item[0]}: {str(item[1])}' for item in dev_chill_reasons])
+    else:
+        top_3_chill_reasons = 'Пока ничего нет'
+    if not db.get_dev():
+        text_if_no_dev = '(У тебя нет работников, нано)'
+    else: 
+        text_if_no_dev = ':)'
+    keyboard, dev = kb.reply_builder_2()
+    await message.answer("Топ 3 работника (по рабочему времени):\n{}\n\nТоп 3 прогульщика (по времени отдыха):\n{}\n\nТоп 3 причины отдыха:\n{}\n\nЕсли хочешь увидеть статистику кого-нибудь определенного нажми на кнопку {}".format(top_3_workers, top_3_chillers, top_3_chill_reasons, text_if_no_dev), reply_markup=keyboard)
+    await state.set_state(State_timer.check_statistics_on_shift)
 
-@dp.message(State_timer.solo_dev)
+@dp.message(State_timer.check_statistics_on_shift)
+async def dev_statistics(message: types.Message, state: FSMContext):
+    keyboard, dev = kb.reply_builder_2()
+    if message.text == 'Назад':
+        await back_on_shift(message, state)
+    elif message.text in dev and await db.is_admin(message.chat.id):
+        dev_statistics_work, dev_statistics_chill, dev_chill_reasons = await db.get_dev_statistics_to_solo_dev(message.text)
+        if dev_statistics_work:
+            top_3_workers = '\n'.join([f'{item[0]}: {str(item[1])}' for item in dev_statistics_work])
+        else:
+            top_3_workers = 'Пока ничего нет'
+        if dev_statistics_chill:
+            top_3_chillers = '\n'.join([f'{item[0]}: {str(item[1])}' for item in dev_statistics_chill])
+        else:
+            top_3_chillers = 'Пока ничего нет'
+        if dev_chill_reasons:
+            top_3_chill_reasons = '\n'.join([f'{item[0]}: {str(item[1])}' for item in dev_chill_reasons])
+        else:
+            top_3_chill_reasons = 'Пока ничего нет'
+        await message.answer("Смены за последнюю неделю:\n{}\n\nВремя отдыха за последнюю неделю:\n{}\n\nТоп 3 причины отдыха:\n{}\n".format(top_3_workers, top_3_chillers, top_3_chill_reasons), reply_markup=keyboard)
+        
+@dp.message(State_timer.check_statistics_not_on_shift)
 async def dev_statistics(message: types.Message, state: FSMContext):
     keyboard, dev = kb.reply_builder_2()
     if message.text in dev and await db.is_admin(message.chat.id):
@@ -277,35 +372,61 @@ async def dev_statistics(message: types.Message, state: FSMContext):
             top_3_chill_reasons = 'Пока ничего нет'
         await message.answer("Смены за последнюю неделю:\n{}\n\nПерерывы за последнюю неделю:\n{}\n\nТоп 3 причины отдыха:\n{}\n".format(top_3_workers, top_3_chillers, top_3_chill_reasons), reply_markup=keyboard)
     elif message.text == 'Назад':
-        await message.answer("Статистика для пидоров", reply_markup=kb.keyboard_start_admin)
-        await message.answer_sticker(r'CAACAgIAAxkBAAEBgVZlL3tszdN_P9VhMQOw6M6qwuhWswACPxMAAtlwOEpSw_r2yt988jAE')
-        await state.clear()
+        await back_not_on_shift(message, state)
 
 
-@dp.message(MyFilter('Назад'), State_timer.check_statistics)
-async def start(message: types.Message, state: FSMContext):
-    await state.clear()
+async def back_on_shift(message: types.Message, state: FSMContext):
     if not await db.is_admin(message.chat.id):
-        await message.answer("Столько дней работал, а ничего не сделал...", reply_markup=kb.keyboard_start)
+        await message.answer("Статистика для пидоров", reply_markup=kb.keyboard_end)
     else:
-        await message.answer("Столько дней работал, а ничего не сделал...", reply_markup=kb.keyboard_start_admin)
+        await message.answer("Статистика для пидоров", reply_markup=kb.keyboard_end_admin)
+    await state.set_state(State_timer.start_time)
     await message.answer_sticker(r'CAACAgIAAxkBAAEBZkplJnJtP-0LHexxexlTBmZyRojmnwAC0QsAAgbzGUjRpvwZO32YlDAE')
     
+    
+async def back_not_on_shift(message: types.Message, state: FSMContext):
+    if not await db.is_admin(message.chat.id):
+        await message.answer("Статистика для пидоров", reply_markup=kb.keyboard_start)
+    else:
+        await message.answer("Статистика для пидоров", reply_markup=kb.keyboard_start_admin)
+    await state.set_state(State_timer.start_bot)
+    await message.answer_sticker(r'CAACAgIAAxkBAAEBZkplJnJtP-0LHexxexlTBmZyRojmnwAC0QsAAgbzGUjRpvwZO32YlDAE')
 
-@dp.message(MyFilter('начать ебашить'))
+@dp.message(MyFilter('Назад'), State_timer.start_time)
+async def start(message: types.Message):
+    if not await db.is_admin(message.chat.id):
+        await message.answer("Статистика для пидоров", reply_markup=kb.keyboard_end)
+    else:
+        await message.answer("Статистика для пидоров", reply_markup=kb.keyboard_end_admin)
+    await message.answer_sticker(r'CAACAgIAAxkBAAEBZkplJnJtP-0LHexxexlTBmZyRojmnwAC0QsAAgbzGUjRpvwZO32YlDAE')
+    
+    
+@dp.message(MyFilter('Назад'), State_timer.start_bot)
+async def start(message: types.Message):
+    if not await db.is_admin(message.chat.id):
+        await message.answer("Статистика для пидоров", reply_markup=kb.keyboard_start)
+    else:
+        await message.answer("Статистика для пидоров", reply_markup=kb.keyboard_start_admin)
+    await message.answer_sticker(r'CAACAgIAAxkBAAEBZkplJnJtP-0LHexxexlTBmZyRojmnwAC0QsAAgbzGUjRpvwZO32YlDAE')
+    
+    
+
+@dp.message(MyFilter('начать смену'), State_timer.start_bot)
 async def start(message: types.Message, state: FSMContext): 
     await state.update_data(start_time = datetime.datetime.now().time().replace(microsecond=0))
-    await message.answer("Погнали нахуй!", reply_markup=kb.keyboard_end)
-    await info_dev(message, 'начал ебашить')
+    if not await db.is_admin(message.chat.id):
+        await message.answer("Стартуем! Я же сказала, стартуем...", reply_markup=kb.keyboard_end)
+        await info_dev(message, 'начал работу')
+    else:
+        await message.answer("Стартуем! Я же сказала, стартуем...", reply_markup=kb.keyboard_end_admin)
     scheduler_2_hours.add_job(print_sheduler_message, trigger='interval', minutes=120, args=[message, "Ты ебашил 2 часа, может пора сделать перерыв?"], id='2_hours_{}'.format(message.chat.id))
     await db.change_is_active(True, message.chat.id)
     await state.set_state(State_timer.start_time)
 
 
-@dp.message(MyFilter('закончить ебашить'), State_timer.start_time)
+@dp.message(MyFilter('закончить смену'), State_timer.start_time)
 async def end(message: types.Message, state: FSMContext):
-    await state.set_state(State_timer.end_time)
-    await info_dev(message, 'закончил ебашить')
+    await info_dev(message, 'закончил работать')
     await state.update_data(end_time = datetime.datetime.now().time().replace(microsecond=0))
     scheduler_2_hours.remove_job(job_id='2_hours_{}'.format(message.chat.id))
     data = await state.get_data()
@@ -318,10 +439,9 @@ async def end(message: types.Message, state: FSMContext):
     else: 
         await message.answer("Надеюсь ты хорошо провел время и сделал хоть что то полезное :)", reply_markup=kb.keyboard_start_admin)
     await message.answer_sticker(r'CAACAgIAAxkBAAEBZghlJmTe3n1WMsBEqiQocf_rW2ggtQACfwkAAibJ6UiBeQ1qzGbWLTAE')
-    await state.set_state(State_timer.end_time)
+    await state.set_state(State_timer.start_bot)
     await db.insert_time_info(message.from_user.id, state, time_difference)
     await db.change_is_active(False, message.chat.id)
-    await state.clear()
 
 
 async def info_dev(message: types.Message, text: str):
@@ -376,7 +496,10 @@ async def with_puree(message: types.Message, state: FSMContext):
     await db.insert_pause_time_info(message.from_user.id, state, time_difference)
     await state.set_state(State_timer.start_time)
     await state.update_data(start_time = datetime.datetime.now().time().replace(microsecond=0))
-    await message.answer('продолжаем ебашить...', reply_markup=kb.keyboard_end)
+    if not await db.is_admin(message.chat.id):
+        await message.answer('продолжаем работать...', reply_markup=kb.keyboard_end)
+    else:
+        await message.answer('продолжаем работать...', reply_markup=kb.keyboard_end_admin)
     await message.answer_sticker(r'CAACAgIAAxkBAAEBZgZlJmQfGnQaKD1B9A82EEDVfl_yQwACNRQAAkN2IUhAgVSjcyNt0TAE')
 
 @dp.message(MyFilter('активные разрабы'))

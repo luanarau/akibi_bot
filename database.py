@@ -344,7 +344,7 @@ async def insert_zero(chat_id: str):
 
 async def productivity_solo(message: types.Message, login: str):
     engine = create_engine(
-        "postgresql://postgres:bal040102@localhost/postgres"
+        "postgresql://postgres:bal040102@db/postgres"
     )
     df = pd.read_sql("select working_date, sum(total_working_time) from working_time where developer_id = (select id from developers "
                      "where login = '{}') group by working_date order by working_date asc limit 7;".format(login), engine)
@@ -362,7 +362,7 @@ async def productivity_solo(message: types.Message, login: str):
         
 async def productivity_solo_month(message: types.Message):
     engine = create_engine(
-        "postgresql://postgres:bal040102@localhost/postgres"
+        "postgresql://postgres:bal040102@db/postgres"
     )
     df = pd.read_sql("select working_date, sum(total_working_time) from working_time where developer_id = (select id from developers "
                      "where chat_id = '{}') group by working_date order by working_date asc limit 30;".format(message.chat.id), engine)
@@ -381,7 +381,7 @@ async def productivity_solo_month(message: types.Message):
         
 async def productivity_solo_week(message: types.Message):
     engine = create_engine(
-        "postgresql://postgres:bal040102@localhost/postgres"
+        "postgresql://postgres:bal040102@db/postgres"
     )
     df = pd.read_sql("select working_date, sum(total_working_time) from working_time where developer_id = (select id from developers "
                      "where chat_id = '{}') group by working_date order by working_date asc limit 7;".format(message.chat.id), engine)
@@ -400,11 +400,13 @@ async def productivity_solo_week(message: types.Message):
         
 async def productivity_all_dev(message: types.Message):
     engine = create_engine(
-        "postgresql://postgres:bal040102@localhost/postgres"
+        "postgresql://postgres:bal040102@db/postgres"
     )
-    df = pd.read_sql("select login, working_date, sum(total_working_time) from working_time join developers on working_time.developer_id = developers.id group by working_date, login order by working_date asc limit 7;", engine)
+    df_query = "select login, working_date, sum(total_working_time) from working_time join developers on working_time.developer_id = developers.id group by working_date, login order by working_date asc limit 7;"
+    df = pd.read_sql(df_query, engine)
     
-    df2 = pd.read_sql("select login, sum(total_working_time) from working_time join developers on working_time.developer_id = developers.id group by login;", engine)
+    df2_query = "select login, sum(total_working_time) from working_time join developers on working_time.developer_id = developers.id group by login;"
+    df2 = pd.read_sql(df2_query, engine)
     
     engine.dispose()
     if not df.empty:

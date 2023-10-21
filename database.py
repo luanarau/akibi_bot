@@ -10,7 +10,7 @@ import youtrack_api as yt
 import bot as bot
 
 
-host = 'db'
+host = 'localhost'
 port = '5432'
 user = 'postgres'
 password = 'bal040102'
@@ -366,6 +366,7 @@ async def productivity_solo_month(message: types.Message):
     )
     df = pd.read_sql("select working_date, sum(total_working_time) from working_time where developer_id = (select id from developers "
                      "where chat_id = '{}') group by working_date order by working_date asc limit 30;".format(message.chat.id), engine)
+    engine.dispose()
     if not df.empty:
         df['sum'] = df['sum'].dt.total_seconds() / 3600
         x_values = list(df['working_date'].astype(str))
@@ -384,6 +385,7 @@ async def productivity_solo_week(message: types.Message):
     )
     df = pd.read_sql("select working_date, sum(total_working_time) from working_time where developer_id = (select id from developers "
                      "where chat_id = '{}') group by working_date order by working_date asc limit 7;".format(message.chat.id), engine)
+    engine.dispose()
     if not df.empty:
         df['sum'] = df['sum'].dt.total_seconds() / 3600
         x_values = list(df['working_date'].astype(str))
@@ -404,6 +406,7 @@ async def productivity_all_dev(message: types.Message):
     
     df2 = pd.read_sql("select login, sum(total_working_time) from working_time join developers on working_time.developer_id = developers.id group by login;", engine)
     
+    engine.dispose()
     if not df.empty:
         plt.figure()
         df['sum'] = df['sum'].dt.total_seconds() / 3600
@@ -419,7 +422,7 @@ async def productivity_all_dev(message: types.Message):
         plt.legend()
         plt.xlabel("Дни за ближайшую неделю")
         plt.ylabel("Часы работы")
-        plt.title("Продуктивность команды за последнюю неделю")
+        plt.title("Продуктивность команды за    последнюю неделю")
         plt.savefig('graphics/productivity.png'.format(login))
         requests.post(f'https://api.telegram.org/bot{bot.token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/productivity.png', 'rb')})
         

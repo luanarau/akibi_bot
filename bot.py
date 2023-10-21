@@ -2,7 +2,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Filter
 from aiogram.fsm.storage.memory import MemoryStorage
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from aiogram.types import Message
+from aiogram.types import Message, InputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import ReplyKeyboardRemove
@@ -67,8 +67,11 @@ scheduler_15_min = AsyncIOScheduler()
 scheduler_before_shift = AsyncIOScheduler()
 scheduler_after_shift = AsyncIOScheduler()
 check_next_day = AsyncIOScheduler()
+zero_impact = AsyncIOScheduler()
 
-bot = Bot(token='6980384013:AAEIE5qvjHjbNMtSXsFZKdnDVdpnNrSA44I')
+
+token = '6980384013:AAEIE5qvjHjbNMtSXsFZKdnDVdpnNrSA44I'
+bot = Bot(token=token)
 dp = Dispatcher(bot = bot, storage=storage)
 admin_token = 'hui'
 
@@ -78,6 +81,7 @@ admin_token = 'hui'
 @dp.message(MyFilter('/start'))
 async def command_start_handler(message: types.Message, state: FSMContext) -> None:
     await db.change_is_active(False, message.chat.id)
+    zero_impact.add_job(db.insert_zero, 'cron', hour=23, minute=59, args=[message.chat.id])
     await message.answer_sticker(r'CAACAgIAAxkBAAEBZk5lJnMTnPjXYKzHP88a_sRguf_0OAAC1xgAAm4m4UsFYy3CmOv8qzAE')
     if await db.authorize(message.from_user.id):
         await message.answer("У тебя нет учетной записи, но давай мы ее привяжем!\nВведи свой ник из youtracker'а:", reply_markup=ReplyKeyboardRemove())
@@ -271,6 +275,7 @@ async def start(message: types.Message):
     data = await db.get_statistics_per_week(message.from_user.id)
     if data:
         result = '\n'.join([f'День: {item[0]}, Время работы: {str(item[1])}' for item in data])
+        await db.productivity_solo_week(message)
     else:
         result = 'Пока ничего нет'
     await message.answer("Статистика за неделю:\n{}".format(result))
@@ -281,6 +286,7 @@ async def start(message: types.Message):
     data = await db.get_statistics_per_month(message.from_user.id)
     if data:
         result = '\n'.join([f'День: {item[0]}, Время работы: {str(item[1])}' for item in data])
+        await db.productivity_solo_month(message)
     else:
         result = 'Пока ничего нет'
     await message.answer("Статистика за месяц:\n{}".format(result))
@@ -307,6 +313,7 @@ async def dev_statistics(message: types.Message, state: FSMContext):
         text_if_no_dev = ':)'
     keyboard, dev = kb.reply_builder_2()
     await message.answer("Топ 3 работника (по рабочему времени):\n{}\n\nТоп 3 прогульщика (по времени отдыха):\n{}\n\nТоп 3 причины отдыха:\n{}\n\nЕсли хочешь увидеть статистику кого-нибудь определенного нажми на кнопку {}".format(top_3_workers, top_3_chillers, top_3_chill_reasons, text_if_no_dev), reply_markup=keyboard)
+    await db.productivity_all_dev(message)
     await state.set_state(State_timer.check_statistics_not_on_shift)
         
 @dp.message(MyFilter('статистика разработчиков'), State_timer.start_time)
@@ -330,6 +337,7 @@ async def dev_statistics(message: types.Message, state: FSMContext):
         text_if_no_dev = ':)'
     keyboard, dev = kb.reply_builder_2()
     await message.answer("Топ 3 работника (по рабочему времени):\n{}\n\nТоп 3 прогульщика (по времени отдыха):\n{}\n\nТоп 3 причины отдыха:\n{}\n\nЕсли хочешь увидеть статистику кого-нибудь определенного нажми на кнопку {}".format(top_3_workers, top_3_chillers, top_3_chill_reasons, text_if_no_dev), reply_markup=keyboard)
+    await db.productivity_all_dev(message)
     await state.set_state(State_timer.check_statistics_on_shift)
 
 @dp.message(State_timer.check_statistics_on_shift)
@@ -352,6 +360,7 @@ async def dev_statistics(message: types.Message, state: FSMContext):
         else:
             top_3_chill_reasons = 'Пока ничего нет'
         await message.answer("Смены за последнюю неделю:\n{}\n\nВремя отдыха за последнюю неделю:\n{}\n\nТоп 3 причины отдыха:\n{}\n".format(top_3_workers, top_3_chillers, top_3_chill_reasons), reply_markup=keyboard)
+        await db.productivity_solo(message, message.text)
         
 @dp.message(State_timer.check_statistics_not_on_shift)
 async def dev_statistics(message: types.Message, state: FSMContext):
@@ -371,6 +380,10 @@ async def dev_statistics(message: types.Message, state: FSMContext):
         else:
             top_3_chill_reasons = 'Пока ничего нет'
         await message.answer("Смены за последнюю неделю:\n{}\n\nПерерывы за последнюю неделю:\n{}\n\nТоп 3 причины отдыха:\n{}\n".format(top_3_workers, top_3_chillers, top_3_chill_reasons), reply_markup=keyboard)
+        await db.productivity_solo(message, message.text)
+
+
+
     elif message.text == 'Назад':
         await back_not_on_shift(message, state)
 
@@ -523,6 +536,7 @@ async def main() -> None:
     scheduler_15_min.start()
     scheduler_before_shift.start()
     scheduler_after_shift.start()
+    zero_impact.start()
     await dp.start_polling(bot)
  
 

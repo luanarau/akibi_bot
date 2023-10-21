@@ -1,11 +1,19 @@
 from aiogram.fsm.context import FSMContext
+import requests
+from aiogram import types, Bot
+from sqlalchemy import create_engine
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pyodbc
 import psycopg2
-import datetime
+import datetime 
 import youtrack_api as yt
 import bot as bot
+import io
 
 
-host = 'db'
+host = 'localhost'
 port = '5432'
 user = 'postgres'
 password = 'bal040102'
@@ -323,3 +331,110 @@ async def remove_acc(chat_id: str):
         cur.execute("update developers set chat_id = null where chat_id = '{}'".format(chat_id))
         db.commit()
     db.close()
+
+async def insert_zero(chat_id: str):
+    db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
+    with db.cursor() as cur:
+        cur.execute("select * from working_time join developers on working_time.developer_id = developers.id where working_date = CAST(CURRENT_TIMESTAMP AS DATE) and developers.chat_id = '{}'".format(chat_id))
+        check = cur.fetchone()
+        if not check:
+            cur.execute("insert into working_time(developer_id, working_date, total_working_time) values((select id from developers where chat_id = '{}' limit 1), CAST(CURRENT_TIMESTAMP AS DATE), '00:00:00')".format(chat_id))
+            if cur:
+                print("inserted zero worktime")
+        db.commit()
+    db.close()
+
+
+async def productivity_solo(message: types.Message, login: str):
+    engine = create_engine(
+        "postgresql://postgres:bal040102@localhost/postgres"
+    )
+    df = pd.read_sql("select working_date, sum(total_working_time) from working_time where developer_id = (select id from developers "
+                     "where login = '{}') group by working_date order by working_date asc limit 7;".format(login), engine)
+    if not df.empty:
+        df['sum'] = df['sum'].dt.total_seconds() / 3600
+        x_values = list(df['working_date'].astype(str))
+        y_values = list(df['sum'])
+        plt.figure()
+        plt.bar(x_values, y_values, color ='maroon', width = 0.4)
+        plt.xlabel("Дни за ближайшую неделю")
+        plt.ylabel("Часы работы")
+        plt.title("Продуктивность {}".format(login))
+        plt.savefig('graphics/{}.png'.format(login))
+        requests.post(f'https://api.telegram.org/bot{bot.token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/{}.png'.format(login), 'rb')})
+        
+async def productivity_solo_month(message: types.Message):
+    engine = create_engine(
+        "postgresql://postgres:bal040102@localhost/postgres"
+    )
+    df = pd.read_sql("select working_date, sum(total_working_time) from working_time where developer_id = (select id from developers "
+                     "where chat_id = '{}') group by working_date order by working_date asc limit 30;".format(message.chat.id), engine)
+    if not df.empty:
+        df['sum'] = df['sum'].dt.total_seconds() / 3600
+        x_values = list(df['working_date'].astype(str))
+        y_values = list(df['sum'])
+        plt.figure()
+        plt.ylim(0, 24)
+        plt.bar(x_values, y_values, color ='maroon', width = 0.4)
+        plt.xlabel("Дни за ближайшую неделю")
+        plt.ylabel("Часы работы")
+        plt.savefig('graphics/{}.png'.format(message.chat.id))
+        requests.post(f'https://api.telegram.org/bot{bot.token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/{}.png'.format(message.chat.id), 'rb')})
+        
+async def productivity_solo_week(message: types.Message):
+    engine = create_engine(
+        "postgresql://postgres:bal040102@localhost/postgres"
+    )
+    df = pd.read_sql("select working_date, sum(total_working_time) from working_time where developer_id = (select id from developers "
+                     "where chat_id = '{}') group by working_date order by working_date asc limit 7;".format(message.chat.id), engine)
+    if not df.empty:
+        df['sum'] = df['sum'].dt.total_seconds() / 3600
+        x_values = list(df['working_date'].astype(str))
+        y_values = list(df['sum'])
+        plt.figure()
+        plt.ylim(0, 24)
+        plt.bar(x_values, y_values, color ='maroon', width = 0.4)
+        plt.xlabel("Дни за ближайшую неделю")
+        plt.ylabel("Часы работы")
+        plt.savefig('graphics/{}.png'.format(message.chat.id))
+        requests.post(f'https://api.telegram.org/bot{bot.token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/{}.png'.format(message.chat.id), 'rb')})
+        
+async def productivity_all_dev(message: types.Message):
+    engine = create_engine(
+        "postgresql://postgres:bal040102@localhost/postgres"
+    )
+    df = pd.read_sql("select login, working_date, sum(total_working_time) from working_time join developers on working_time.developer_id = developers.id group by working_date, login order by working_date asc limit 7;", engine)
+    
+    df2 = pd.read_sql("select login, sum(total_working_time) from working_time join developers on working_time.developer_id = developers.id group by login;", engine)
+    
+    if not df.empty:
+        plt.figure()
+        df['sum'] = df['sum'].dt.total_seconds() / 3600
+        x_values = list(df['working_date'].astype(str))
+        unique = df.login.unique()
+        
+        for login in unique:
+            filtered_df = df[df['login'] == login]
+            x_values = list(filtered_df['working_date'].astype(str))
+            y_values = list(filtered_df['sum'])
+            plt.plot(x_values, y_values, label='{}'.format(login))
+        plt.ylim(0, 16)
+        plt.legend()
+        plt.xlabel("Дни за ближайшую неделю")
+        plt.ylabel("Часы работы")
+        plt.title("Продуктивность команды за последнюю неделю")
+        plt.savefig('graphics/productivity.png'.format(login))
+        requests.post(f'https://api.telegram.org/bot{bot.token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/productivity.png', 'rb')})
+        
+    if not df2.empty:
+        plt.figure()
+        df2['sum'] = df2['sum'].dt.total_seconds() / 3600
+        plt.bar(df2['login'], df2['sum'], color ='maroon', width = 0.4)
+        plt.ylim(0, 16)
+        plt.legend()
+        plt.ylabel("Сумарные часы работы")
+        plt.title("Продуктивность команды за последнюю неделю")
+        plt.savefig('graphics/productivity2.png'.format(login))
+        requests.post(f'https://api.telegram.org/bot{bot.token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/productivity2.png', 'rb')})
+        
+        

@@ -3,17 +3,14 @@ import requests
 from aiogram import types, Bot
 from sqlalchemy import create_engine
 import pandas as pd
-import seaborn as sns
 import matplotlib.pyplot as plt
-import pyodbc
 import psycopg2
 import datetime 
 import youtrack_api as yt
 import bot as bot
-import io
 
 
-host = 'localhost'
+host = 'db'
 port = '5432'
 user = 'postgres'
 password = 'bal040102'

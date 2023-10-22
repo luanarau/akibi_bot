@@ -176,8 +176,13 @@ async def choose_day(message: types.Message, state: FSMContext, on_shift: bool):
         await message.answer("Выбери время начала смены:", reply_markup=kb.keyboard_chose_time)
         await state.set_state(State_timer.chose_time_on_shift) if on_shift else await state.set_state(State_timer.chose_time_not_on_shift)
     elif (date == 'Назад'):
-        keyboard = kb.keyboard_start if not await db.is_admin(message.chat.id) else kb.keyboard_start_admin
-        await message.answer("Возвращайся когда захочешь изменить свое расписание", reply_markup = keyboard)
+        if on_shift:
+            keyboard = kb.keyboard_end
+            keyboard_admin = kb.keyboard_end_admin
+        else:
+            keyboard = kb.keyboard_start
+            keyboard_admin = kb.keyboard_start_admin 
+        await message.answer("Возвращайся когда захочешь изменить свое расписание", reply_markup=keyboard_admin) if await db.is_admin(message.chat.id) else await message.answer("Возвращайся когда захочешь изменить свое расписание", reply_markup=keyboard)
         await message.answer_sticker(r'CAACAgIAAxkBAAEBbPJlJ6i7YmB2Ie-1ifw1aHRxanx2qgACRRoAAphU0Ep9f9XploWBYDAE')
         await state.set_state(State_timer.start_time) if on_shift else await state.set_state(State_timer.start_bot)
     else:
@@ -277,11 +282,11 @@ async def dev_statistics(message: types.Message, state: FSMContext, on_shift: bo
 
 @dp.message(State_timer.check_statistics_on_shift)
 async def solo_dev_statistics_on_shift(message: types.Message, state: FSMContext):
-    await solo_dev_statistics(message, state)
+    await solo_dev_statistics(message, state, True)
         
 @dp.message(State_timer.check_statistics_not_on_shift)
 async def solo_dev_statistics_on_shift(message: types.Message, state: FSMContext):
-    await solo_dev_statistics(message, state)
+    await solo_dev_statistics(message, state, False)
         
 async def solo_dev_statistics(message: types.Message, state: FSMContext, on_shift: bool):
     keyboard, dev = kb.reply_builder_2()

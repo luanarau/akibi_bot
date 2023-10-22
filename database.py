@@ -98,8 +98,10 @@ def insert_developers():
                 if cur:
                     print("developer with id {} added".format(id))
         cur.execute("DELETE FROM developers WHERE login = 'admin';")
-        cur.execute("DELETE FROM developers WHERE login = 'guest';")  
-        cur.execute("insert into developers(login, name, youtracker_id, is_admin) values('luanarau', 'Timofei Balagankii', 'youtracker_id', 'false');")             
+        cur.execute("DELETE FROM developers WHERE login = 'guest';")
+        cur.execute("select * from developers where login = 'luanarau';")
+        if not cur.fetchone:  
+            cur.execute("insert into developers(login, name, youtracker_id, is_admin) values('luanarau', 'Timofei Balagankii', 'youtracker_id', 'false');")             
     db.commit()
     db.close() 
 

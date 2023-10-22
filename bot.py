@@ -283,7 +283,7 @@ async def solo_dev_statistics_on_shift(message: types.Message, state: FSMContext
 async def solo_dev_statistics_on_shift(message: types.Message, state: FSMContext):
     await solo_dev_statistics(message, state)
         
-async def solo_dev_statistics(message: types.Message, state: FSMContext):
+async def solo_dev_statistics(message: types.Message, state: FSMContext, on_shift: bool):
     keyboard, dev = kb.reply_builder_2()
     if message.text in dev and await db.is_admin(message.chat.id):
         dev_statistics_work, dev_statistics_chill, dev_chill_reasons = await db.get_dev_statistics_to_solo_dev(message.text)
@@ -293,7 +293,7 @@ async def solo_dev_statistics(message: types.Message, state: FSMContext):
         await message.answer("Смены за последнюю неделю:\n{}\n\nПерерывы за последнюю неделю:\n{}\n\nТоп 3 причины отдыха:\n{}\n".format(top_3_workers, top_3_chillers, top_3_chill_reasons), reply_markup=keyboard)
         await db.productivity_solo(message, message.text)
     elif message.text == 'Назад':
-        await back_not_on_shift(message, state)
+        await back_on_shift(message, state) if on_shift else await back_not_on_shift(message, state)
     
         
 ## Отправляет сообщение с разработчиками и статусом (Работает/Не работает)
@@ -309,11 +309,11 @@ async def check_active_dev(message: types.Message):
 ## Различные условия выхода, при нажатии на кнопку 'Назад'
 
 @dp.message(MyFilter('Назад'), State_timer.start_time)
-async def start(message: types.Message):
+async def back(message: types.Message):
     await send_if_back_statistics(message, True)
     
 @dp.message(MyFilter('Назад'), State_timer.start_bot)
-async def start(message: types.Message):
+async def back(message: types.Message):
     await send_if_back_statistics(message, False)
 
 async def back_on_shift(message: types.Message, state: FSMContext):
@@ -332,10 +332,7 @@ async def send_if_back_statistics(message: types.Message, on_shift: bool):
     else:
         keyboard = kb.keyboard_start
         keyboard_admin = kb.keyboard_start_admin 
-    if not await db.is_admin(message.chat.id):
-        await message.answer("Возвращйся когда захочешь посмотреть статистику", reply_markup=keyboard)
-    else:
-        await message.answer("Возвращйся когда захочешь посмотреть статистику", reply_markup=keyboard_admin)
+    await message.answer("Возвращйся когда захочешь посмотреть статистику", reply_markup=keyboard_admin) if await db.is_admin(message.chat.id) else await message.answer("Возвращйся когда захочешь посмотреть статистику", reply_markup=keyboard)
     await message.answer_sticker(r'CAACAgIAAxkBAAEBj_9lNPhtisfYFpWr0Jsi_r2q9BQOyQAC9BcAAop8IEgmgbl30zIBnTAE')
 
 

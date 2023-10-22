@@ -326,7 +326,7 @@ async def back_on_shift(message: types.Message, state: FSMContext):
     await state.set_state(State_timer.start_time)
     
 async def back_not_on_shift(message: types.Message, state: FSMContext):
-    await send_if_back_statistics(message, True)
+    await send_if_back_statistics(message, False)
     await state.set_state(State_timer.start_bot)
 
 

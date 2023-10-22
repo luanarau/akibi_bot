@@ -2,22 +2,26 @@ from aiogram.fsm.context import FSMContext
 import requests
 from aiogram import types, Bot
 from sqlalchemy import create_engine
+from dotenv import load_dotenv
 import pandas as pd
 import matplotlib.pyplot as plt
 import psycopg2
 import datetime 
 import youtrack_api as yt
 import bot as bot
+import os
 
+load_dotenv()
 
-host = 'localhost'
-port = '5432'
-user = 'postgres'
-password = 'bal040102'
-db_name = 'postgres'
+host = os.getenv('DB_HOST')
+user = os.getenv('DB_USER')
+password = os.getenv('DB_PASSWORD')
+db_name = os.getenv('DB_NAME')
+
+## Функция, создающая таблицы в бд
 
 def create_db():
-    db = psycopg2.connect(host=host, port=port, user=user, password=password, database=db_name)
+    db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
         cur.execute("create table if not exists developers("
                     "id serial PRIMARY KEY, "
@@ -60,6 +64,8 @@ def create_db():
     db.close()
 
 
+## Функция, добавляющая chat_id пользователя при регистрации
+
 async def insert_chat_id(chat_id: str, login: str) -> bool:
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
@@ -74,6 +80,7 @@ async def insert_chat_id(chat_id: str, login: str) -> bool:
             db.close()
             return True
 
+## Функция, добавляющая разработчиков, получаемых через API с youtracker'а
 
 def insert_developers():
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
@@ -91,23 +98,13 @@ def insert_developers():
                 if cur:
                     print("developer with id {} added".format(id))
         cur.execute("DELETE FROM developers WHERE login = 'admin';")
-        cur.execute("DELETE FROM developers WHERE login = 'guest';")               
-
+        cur.execute("DELETE FROM developers WHERE login = 'guest';")  
+        cur.execute("insert into developers(login, name, youtracker_id, is_admin) values('luanarau', 'Timofei Balagankii', 'youtracker_id', 'false');")             
     db.commit()
     db.close() 
-    
-    
-async def get_tasks(id):
-    db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
-    with db.cursor() as cur:
-        cur.execute("select working_tasks.id, working_tasks.task from working_tasks "
-                    "join developer_acesses on working_tasks.project_id = developer_acesses.project_id "
-                    "join developers on developer_acesses.developer_id = developers.id "
-                    "where chat_id = '{}' and working_tasks.resolved = 'None';".format(id))
-        data = cur.fetchall()
-    db.commit()
-    db.close()   
-    return data
+
+
+## Функции возвращающие данные для статистики
 
 async def get_statistics_per_day(id):
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
@@ -144,6 +141,8 @@ async def get_statistics_per_month(id):
     db.close()   
     return data
 
+## Функция добавляющая расписания и job для sheduler 
+
 async def insert_dev_schedule(message, chat_id: str, state: FSMContext, shift_end):
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
@@ -175,6 +174,7 @@ async def insert_dev_schedule(message, chat_id: str, state: FSMContext, shift_en
         db.commit()
     db.close()
 
+## Функция для провери наличия chat_id в базе для регистрации
 
 async def authorize(chat_id: str) -> bool:
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
@@ -187,6 +187,8 @@ async def authorize(chat_id: str) -> bool:
         else:
             return False
 
+## Функция для добавления значений в базу working_time
+
 async def insert_time_info(chat_id: str, state: FSMContext, timedelta) -> None:
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
@@ -196,6 +198,8 @@ async def insert_time_info(chat_id: str, state: FSMContext, timedelta) -> None:
         db.commit()
     db.close()
 
+## Функция для добавления значений в базу pauses
+
 async def insert_pause_time_info(chat_id: str, state: FSMContext, time_difference) -> None:
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
@@ -203,6 +207,8 @@ async def insert_pause_time_info(chat_id: str, state: FSMContext, time_differenc
         cur.execute("insert into pauses(pause_reason, developer_id, total_pause_time) values('{}', (select id from developers where chat_id = '{}' limit 1), '{}')".format(data['pause_reason'], chat_id, time_difference))
         db.commit()
     db.close()
+
+## Функция для проверки есть ли уже расписание на какой либо день задаваемый пользователем
 
 async def check_for_schedule(chat_id: str, date) -> bool:
     state = False
@@ -214,6 +220,8 @@ async def check_for_schedule(chat_id: str, date) -> bool:
     db.close()
     return state
 
+## Функция возвращающая все расписание пользователя
+
 async def get_full_schedule(chat_id: str):
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
@@ -221,6 +229,8 @@ async def get_full_schedule(chat_id: str):
         data = cur.fetchall()
     db.close()
     return data
+
+## Функция меняющая статус работы
 
 async def change_is_active(flag: bool, chat_id: str):
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
@@ -231,7 +241,9 @@ async def change_is_active(flag: bool, chat_id: str):
             cur.execute("update is_active set is_active = 'false' where developer_id = (select id from developers where chat_id = '{}' limit 1)".format(chat_id))
         db.commit()
     db.close()
-    
+
+## Функция возвращающая статус работы
+
 async def get_is_active():
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
@@ -240,7 +252,9 @@ async def get_is_active():
         db.commit()
     db.close()
     return is_active
-    
+
+## Функция возвращающая статус админа
+
 async def is_admin(chat_id: str):
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
@@ -249,6 +263,8 @@ async def is_admin(chat_id: str):
         db.commit()
     db.close()
     return is_admin
+
+## Функция возвращающая всех админов
 
 async def all_admins():
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
@@ -259,6 +275,9 @@ async def all_admins():
     db.close()
     return all_admins
 
+
+## Функция возвращающая логин пользователя
+
 async def get_my_login(chat_id: str):
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
@@ -267,6 +286,9 @@ async def get_my_login(chat_id: str):
         db.commit()
     db.close()
     return login
+ 
+ 
+## Функция меняющая статус админа
     
 async def grant_admin(chat_id: str):
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
@@ -275,6 +297,8 @@ async def grant_admin(chat_id: str):
         db.commit()
     db.close()
     
+## Функция возвращающая всех разработчиков   
+
 def get_dev():
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
@@ -282,7 +306,9 @@ def get_dev():
         dev = cur.fetchall()
     db.close()
     return dev
-    
+
+## Функции возвращающие данные для статистики
+
 async def get_dev_statistics_to_admin():
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
@@ -320,7 +346,10 @@ async def get_dev_statistics_to_solo_dev(login: str):
         db.commit()
     db.close()
     return week_statistics_work, week_statistics_chill, chill_reasons
-    
+
+
+## Функция удаляющая аккаунт пользователя из базы
+
 async def remove_acc(chat_id: str):
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
@@ -328,6 +357,8 @@ async def remove_acc(chat_id: str):
         cur.execute("update developers set chat_id = null where chat_id = '{}'".format(chat_id))
         db.commit()
     db.close()
+
+## Нужна для заполнения нерабочих дней нулями
 
 async def insert_zero(chat_id: str):
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
@@ -342,10 +373,10 @@ async def insert_zero(chat_id: str):
     db.close()
 
 
+## Функции для отрисовки графиков
+
 async def productivity_solo(message: types.Message, login: str):
-    engine = create_engine(
-        "postgresql://postgres:bal040102@db/postgres"
-    )
+    engine = create_engine(os.getenv('POSTGRES_ENGINE'))
     df = pd.read_sql("select working_date, sum(total_working_time) from working_time where developer_id = (select id from developers "
                      "where login = '{}') group by working_date order by working_date asc limit 7;".format(login), engine)
     if not df.empty:
@@ -358,12 +389,10 @@ async def productivity_solo(message: types.Message, login: str):
         plt.ylabel("Часы работы")
         plt.title("Продуктивность {}".format(login))
         plt.savefig('graphics/{}.png'.format(login))
-        requests.post(f'https://api.telegram.org/bot{bot.token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/{}.png'.format(login), 'rb')})
+        requests.post(f'https://api.telegram.org/bot{bot.bot_token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/{}.png'.format(login), 'rb')})
         
 async def productivity_solo_month(message: types.Message):
-    engine = create_engine(
-        "postgresql://postgres:bal040102@db/postgres"
-    )
+    engine = create_engine(os.getenv('POSTGRES_ENGINE'))
     df = pd.read_sql("select working_date, sum(total_working_time) from working_time where developer_id = (select id from developers "
                      "where chat_id = '{}') group by working_date order by working_date asc limit 30;".format(message.chat.id), engine)
     engine.dispose()
@@ -377,12 +406,10 @@ async def productivity_solo_month(message: types.Message):
         plt.xlabel("Дни за последний месяц")
         plt.ylabel("Часы работы")
         plt.savefig('graphics/{}.png'.format(message.chat.id))
-        requests.post(f'https://api.telegram.org/bot{bot.token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/{}.png'.format(message.chat.id), 'rb')})
+        requests.post(f'https://api.telegram.org/bot{bot.bot_token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/{}.png'.format(message.chat.id), 'rb')})
         
 async def productivity_solo_week(message: types.Message):
-    engine = create_engine(
-        "postgresql://postgres:bal040102@db/postgres"
-    )
+    engine = create_engine(os.getenv('POSTGRES_ENGINE'))
     df = pd.read_sql("select working_date, sum(total_working_time) from working_time where developer_id = (select id from developers "
                      "where chat_id = '{}') group by working_date order by working_date asc limit 7;".format(message.chat.id), engine)
     engine.dispose()
@@ -396,12 +423,10 @@ async def productivity_solo_week(message: types.Message):
         plt.xlabel("Дни за ближайшую неделю")
         plt.ylabel("Часы работы")
         plt.savefig('graphics/{}.png'.format(message.chat.id))
-        requests.post(f'https://api.telegram.org/bot{bot.token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/{}.png'.format(message.chat.id), 'rb')})
+        requests.post(f'https://api.telegram.org/bot{bot.bot_token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/{}.png'.format(message.chat.id), 'rb')})
         
 async def productivity_all_dev(message: types.Message):
-    engine = create_engine(
-        "postgresql://postgres:bal040102@db/postgres"
-    )
+    engine = create_engine(os.getenv('POSTGRES_ENGINE'))
     df_query = "select login, working_date, sum(total_working_time) from working_time join developers on working_time.developer_id = developers.id group by working_date, login order by working_date asc limit 7;"
     df = pd.read_sql(df_query, engine)
     
@@ -426,7 +451,7 @@ async def productivity_all_dev(message: types.Message):
         plt.ylabel("Часы работы")
         plt.title("Продуктивность команды за последнюю неделю")
         plt.savefig('graphics/productivity.png'.format(login))
-        requests.post(f'https://api.telegram.org/bot{bot.token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/productivity.png', 'rb')})
+        requests.post(f'https://api.telegram.org/bot{bot.bot_token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/productivity.png', 'rb')})
         
     if not df2.empty:
         plt.figure()
@@ -437,6 +462,6 @@ async def productivity_all_dev(message: types.Message):
         plt.ylabel("Сумарные часы работы")
         plt.title("Продуктивность команды за последнюю неделю")
         plt.savefig('graphics/productivity2.png'.format(login))
-        requests.post(f'https://api.telegram.org/bot{bot.token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/productivity2.png', 'rb')})
+        requests.post(f'https://api.telegram.org/bot{bot.bot_token}/sendPhoto', data={'chat_id': message.chat.id}, files={'photo': open('graphics/productivity2.png', 'rb')})
         
         

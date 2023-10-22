@@ -122,8 +122,8 @@ keyboard_chose_time = ReplyKeyboardMarkup(
 )
 
 kb_chose_admin = [[
-        KeyboardButton(text="ес"),
-        KeyboardButton(text="ноу"),
+        KeyboardButton(text="да"),
+        KeyboardButton(text="нет"),
 ]]
 
 keyboard_chose_admin = ReplyKeyboardMarkup(

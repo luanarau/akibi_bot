@@ -7,3 +7,5 @@ matplotlib
 pandas==1.5.3
 pandas-profiling==3.2.0
 SQLAlchemy
+python-dotenv==1.0.0
+aiogram==3.0.0

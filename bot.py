@@ -126,12 +126,17 @@ async def load_tag(message: types.Message, state: FSMContext) -> None:
 @dp.message(State_timer.login)
 async def load_tag(message: types.Message, state: FSMContext) -> None:
     login = message.text
+    data = db.get_dev()
+    db_logins = [item[0] for item in data]
     if login.isascii():
-        await state.update_data(login = login)
-        await db.insert_developer(state, message)
-        keyboard = kb.keyboard_start_admin if await db.is_admin(message.chat.id) else kb.keyboard_start
-        await message.answer(f"Отлично, {login}! Можешь работать", reply_markup = keyboard)
-        await state.set_state(State_timer.start_bot)
+        if login not in db_logins:
+            await state.update_data(login = login)
+            await db.insert_developer(state, message)
+            keyboard = kb.keyboard_start_admin if await db.is_admin(message.chat.id) else kb.keyboard_start
+            await message.answer(f"Отлично, {login}! Можешь работать", reply_markup = keyboard)
+            await state.set_state(State_timer.start_bot)
+        else:
+            await message.answer("Этот логин уже занят, возьми другой", reply_markup=ReplyKeyboardRemove())
     else:
         await message.answer("Ты используешь, неразрешенные символы.", reply_markup=ReplyKeyboardRemove())
 
@@ -338,11 +343,7 @@ async def send_if_back_statistics(message: types.Message, on_shift: bool):
 
 @dp.message(MyFilter('начать смену'), State_timer.start_bot)
 async def start_shift(message: types.Message, state: FSMContext): 
-    if not await db.is_admin(message.chat.id):
-        keyboard = kb.keyboard_end
-        await info_dev(message, 'начал работу')
-    else:
-        keyboard = kb.keyboard_end_admin
+    keyboard = kb.keyboard_end_admin if await db.is_admin(message.chat.id) else kb.keyboard_end
     await state.update_data(start_time = datetime.datetime.now().time().replace(microsecond=0))
     await message.answer("Смена началась!", reply_markup=keyboard)
     scheduler_2_hours.add_job(print_sheduler_message, trigger='interval', minutes=120, args=[message, "Ты ебашил 2 часа, может пора сделать перерыв?"], id='2_hours_{}'.format(message.chat.id))
@@ -352,10 +353,7 @@ async def start_shift(message: types.Message, state: FSMContext):
 
 @dp.message(MyFilter('закончить смену'), State_timer.start_time)
 async def end_shift(message: types.Message, state: FSMContext):
-    if not await db.is_admin(message.chat.id):
-        keyboard = kb.keyboard_start
-    else:
-        keyboard = kb.keyboard_start_admin
+    keyboard = kb.keyboard_start_admin if await db.is_admin(message.chat.id) else kb.keyboard_start
     await info_dev(message, 'закончил работать')
     await state.update_data(end_time = datetime.datetime.now().time().replace(microsecond=0))
     scheduler_2_hours.remove_job(job_id='2_hours_{}'.format(message.chat.id))
@@ -446,10 +444,7 @@ async def remove_acc(message: types.Message, state: FSMContext):
         await message.answer_sticker(r'CAACAgIAAxkBAAEBbPJlJ6i7YmB2Ie-1ifw1aHRxanx2qgACRRoAAphU0Ep9f9XploWBYDAE')
         await state.clear()
     elif message.text == 'нет':
-        if not await db.is_admin(message.chat.id):
-            keyboard = kb.keyboard_start
-        else:
-            keyboard = kb.keyboard_start_admin
+        keyboard = kb.keyboard_start_admin if await db.is_admin(message.chat.id) else kb.keyboard_start
         await message.answer("ну и ладно...", reply_markup=keyboard)
         await state.clear()
     else:

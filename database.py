@@ -55,10 +55,8 @@ def create_db():
                     "sheduler_before_id text, "
                     "sheduler_after_id text, "
                     "constraint fk_developer_id foreign key (developer_id) references developers(id))")
-
         db.commit()
     db.close()
-
 
 ## Функция, добавляющая chat_id пользователя при регистрации
 
@@ -269,7 +267,7 @@ async def grant_admin(chat_id: str):
 def get_dev():
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
-        cur.execute("select login from developers where chat_id is not null;")
+        cur.execute("select login from developers;")
         dev = cur.fetchall()
     db.close()
     return dev

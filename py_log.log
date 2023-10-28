@@ -1,0 +1,25 @@
+INFO:apscheduler.scheduler:Scheduler started
+INFO:apscheduler.scheduler:Scheduler started
+INFO:apscheduler.scheduler:Scheduler started
+INFO:apscheduler.scheduler:Scheduler started
+INFO:apscheduler.scheduler:Scheduler started
+INFO:aiogram.dispatcher:Start polling
+INFO:aiogram.dispatcher:Run polling for bot @hAkibi_bot id=6980384013 - 'akibi_bot'
+INFO:apscheduler.scheduler:Added job "insert_zero" to job store "default"
+INFO:aiogram.event:Update id=878727926 is handled. Duration 491 ms by bot id=6980384013
+INFO:apscheduler.scheduler:Added job "print_sheduler_message" to job store "default"
+INFO:aiogram.event:Update id=878727927 is handled. Duration 153 ms by bot id=6980384013
+INFO:apscheduler.scheduler:Removed job 2_hours_692441302
+INFO:aiogram.event:Update id=878727928 is handled. Duration 829 ms by bot id=6980384013
+INFO:aiogram.event:Update id=878727929 is handled. Duration 161 ms by bot id=6980384013
+INFO:apscheduler.scheduler:Added job "print_sheduler_message" to job store "default"
+INFO:aiogram.event:Update id=878727930 is handled. Duration 194 ms by bot id=6980384013
+INFO:aiogram.event:Update id=878727931 is handled. Duration 175 ms by bot id=6980384013
+INFO:apscheduler.scheduler:Removed job 2_hours_692441302
+INFO:apscheduler.scheduler:Added job "print_sheduler_message" to job store "default"
+INFO:apscheduler.scheduler:Scheduler has been shut down
+INFO:aiogram.event:Update id=878727932 is handled. Duration 407 ms by bot id=6980384013
+INFO:aiogram.event:Update id=878727933 is handled. Duration 116 ms by bot id=6980384013
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Removed job 15_minutes_692441302
+INFO:aiogram.event:Update id=878727934 is handled. Duration 350 ms by bot id=6980384013

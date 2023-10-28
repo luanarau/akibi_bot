@@ -7,7 +7,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import psycopg2
 import datetime 
-import youtrack_api as yt
 import bot as bot
 import os
 
@@ -23,13 +22,13 @@ db_name = os.getenv('DB_NAME')
 def create_db():
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
+
         cur.execute("create table if not exists developers("
                     "id serial PRIMARY KEY, "
                     "chat_id text, "
                     "login text, "
-                    "name text not null, "
-                    "youtracker_id text not null, "
-                    "is_admin boolean not null)")
+                    "is_admin boolean not null, "
+                    "is_active bool not null)")
         
         cur.execute("create table if not exists working_time("
                     "working_time_id serial PRIMARY KEY, "
@@ -56,54 +55,23 @@ def create_db():
                     "sheduler_before_id text, "
                     "sheduler_after_id text, "
                     "constraint fk_developer_id foreign key (developer_id) references developers(id))")
-        
-        cur.execute("create table if not exists is_active("
-                    "developer_id serial PRIMARY KEY, "
-                    "is_active boolean)")
+
         db.commit()
     db.close()
 
 
 ## Функция, добавляющая chat_id пользователя при регистрации
 
-async def insert_chat_id(chat_id: str, login: str) -> bool:
+async def insert_developer(state: FSMContext, message):
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
+    data = await state.get_data()
     with db.cursor() as cur:
-        cur.execute("select * from developers where login = '{}';".format(login))
+        cur.execute("select * from developers where login = '{}';".format(data['login']))
         find_one = cur.fetchone()
-        if find_one:
-            cur.execute("update developers set chat_id = '{}' where login = '{}'".format(chat_id, login))
+        if not find_one:
+            cur.execute("insert into developers(chat_id, login, is_admin, is_active) values('{}', '{}', {}, {})".format(message.chat.id, data['login'], data['token'], False))
             db.commit()
-            db.close()
-            return False
-        else:
-            db.close()
-            return True
-
-## Функция, добавляющая разработчиков, получаемых через API с youtracker'а
-
-def insert_developers():
-    db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
-    logins, names, ids = yt.get_jsons_project_teams()
-    with db.cursor() as cur:
-        while logins:
-            login = (str)(logins.pop())
-            name = (str)(names.pop())
-            id = (str)(ids.pop())
-            cur.execute("select * from developers where login = '{}'".format(login))
-            project_name = cur.fetchone()
-            if not project_name:
-                cur.execute("insert into developers(login, name, youtracker_id, is_admin) values('{}', '{}', '{}', 'false');".format(login, name, id))
-                cur.execute("insert into is_active(is_active) values('false')")
-                if cur:
-                    print("developer with id {} added".format(id))
-        cur.execute("DELETE FROM developers WHERE login = 'admin';")
-        cur.execute("DELETE FROM developers WHERE login = 'guest';")
-        cur.execute("select * from developers where login = 'luanarau';")
-        if not cur.fetchone:  
-            cur.execute("insert into developers(login, name, youtracker_id, is_admin) values('luanarau', 'Timofei Balagankii', 'youtracker_id', 'false');")             
-    db.commit()
-    db.close() 
+    db.close()
 
 
 ## Функции возвращающие данные для статистики
@@ -237,11 +205,8 @@ async def get_full_schedule(chat_id: str):
 async def change_is_active(flag: bool, chat_id: str):
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
-        if flag:
-            cur.execute("update is_active set is_active = 'true' where developer_id = (select id from developers where chat_id = '{}' limit 1)".format(chat_id))
-        else:
-            cur.execute("update is_active set is_active = 'false' where developer_id = (select id from developers where chat_id = '{}' limit 1)".format(chat_id))
-        db.commit()
+        cur.execute("update developers set is_active = {} where chat_id = '{}'".format(flag, chat_id))
+    db.commit()
     db.close()
 
 ## Функция возвращающая статус работы
@@ -249,7 +214,7 @@ async def change_is_active(flag: bool, chat_id: str):
 async def get_is_active():
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
-        cur.execute("select developers.login, is_active.is_active from is_active join developers on developer_id = developers.id")
+        cur.execute("select developers.login, developers.is_active from developers;")
         is_active = cur.fetchall()
         db.commit()
     db.close()
@@ -261,10 +226,10 @@ async def is_admin(chat_id: str):
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
         cur.execute("select is_admin from developers where chat_id = '{}'".format(chat_id))
-        is_admin = cur.fetchone()[0]
+        is_admin = cur.fetchone()
         db.commit()
     db.close()
-    return is_admin
+    return is_admin[0]
 
 ## Функция возвращающая всех админов
 
@@ -355,8 +320,7 @@ async def get_dev_statistics_to_solo_dev(login: str):
 async def remove_acc(chat_id: str):
     db = psycopg2.connect(host=host, user=user, password=password, database=db_name)
     with db.cursor() as cur:
-        cur.execute("update developers set is_admin = false where chat_id = '{}'".format(chat_id))
-        cur.execute("update developers set chat_id = null where chat_id = '{}'".format(chat_id))
+        cur.execute("delete from developers where chat_id = '{}'".format(chat_id))
         db.commit()
     db.close()
 
@@ -386,6 +350,7 @@ async def productivity_solo(message: types.Message, login: str):
         x_values = list(df['working_date'].astype(str))
         y_values = list(df['sum'])
         plt.figure()
+        plt.ylim(0, 24)
         plt.bar(x_values, y_values, color ='maroon', width = 0.4)
         plt.xlabel("Дни за последнюю неделю")
         plt.ylabel("Часы работы")

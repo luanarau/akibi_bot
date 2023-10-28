@@ -19,14 +19,16 @@ import sys
 
 load_dotenv()
 
+user_token = os.getenv('USER_TOKEN')
+admin_token = os.getenv('ADMIN_TOKEN')
+
 ## Основная машина состояний
 
 class State_timer(StatesGroup):
     
     ## Состояния для регистрации пользователя
-    tag = State()
-    admin = State()
-    admin_token = State()
+    token = State()
+    login = State()
     
     ## Состояния начала работы бота (start_bot) и просмотра статистики
     start_bot = State()
@@ -93,54 +95,45 @@ dp = Dispatcher(bot = bot, storage=storage)
 
 @dp.message(MyFilter('/start'))
 async def command_start_handler(message: types.Message, state: FSMContext) -> None:
-    await db.change_is_active(False, message.chat.id)
     zero_impact.add_job(db.insert_zero, 'cron', hour=23, minute=59, args=[message.chat.id])
     await message.answer_sticker(r'CAACAgIAAxkBAAEBZk5lJnMTnPjXYKzHP88a_sRguf_0OAAC1xgAAm4m4UsFYy3CmOv8qzAE')
     if await db.authorize(message.from_user.id):
-        await message.answer("У тебя нет учетной записи, но давай мы ее привяжем!\nВведи свой ник из youtracker'а:", reply_markup=ReplyKeyboardRemove())
-        await state.set_state(State_timer.tag)
+        await message.answer("У тебя нет учетной записи, но давай мы ее создадим!\nВведи свой токен:", reply_markup=ReplyKeyboardRemove())
+        await state.set_state(State_timer.token)
     else:
-        if not await db.is_admin(message.chat.id):
-            keyboard = kb.keyboard_start
-        else:
-            keyboard = kb.keyboard_start_admin
+        keyboard = kb.keyboard_start_admin if await db.is_admin(message.chat.id) else kb.keyboard_start
         await message.answer("Ты авторизован!", reply_markup = keyboard)
         await state.set_state(State_timer.start_bot)
             
 
-@dp.message(State_timer.tag)
+@dp.message(State_timer.token)
 async def load_tag(message: types.Message, state: FSMContext) -> None:
-    res = await db.insert_chat_id(message.from_user.id, message.text)
-    if res:
-        await message.reply("Тебя нет в youtracker, возможно ты неправильно ввел логин. Попробуй блять еще раз")
+    token = message.text
+    if token == user_token:
+        await state.update_data(token = False)
+        await message.answer("Ты пользователь, введи свой логин:", reply_markup=ReplyKeyboardRemove())
+        await state.set_state(State_timer.login)
+    elif token == admin_token:
+        await state.update_data(token = True)
+        await message.answer("Ты админ, введи свой логин:", reply_markup=ReplyKeyboardRemove())
+        await state.set_state(State_timer.login)
     else:
-        await message.answer("Логин привязан", reply_markup=ReplyKeyboardRemove())
-        await message.answer("Давай второй вопрос: Ты админ?", reply_markup=kb.keyboard_chose_admin)
-        await state.set_state(State_timer.admin)
+        await message.answer("Ты ввел неправильный токен, попробуй еще раз", reply_markup=ReplyKeyboardRemove())
+        
+    
         
 
-@dp.message(State_timer.admin)
+@dp.message(State_timer.login)
 async def load_tag(message: types.Message, state: FSMContext) -> None:
-    if (message.text == 'да'):
-        await state.set_state(State_timer.admin_token)
-        await message.answer("Введи свой токен:", reply_markup=kb.keyboard_before)
-    elif (message.text == 'нет'):   
-        await message.answer('Все супер, можешь спокойно работать', reply_markup=kb.keyboard_start)
+    login = message.text
+    if login.isascii():
+        await state.update_data(login = login)
+        await db.insert_developer(state, message)
+        keyboard = kb.keyboard_start_admin if await db.is_admin(message.chat.id) else kb.keyboard_start
+        await message.answer(f"Отлично, {login}! Можешь работать", reply_markup = keyboard)
         await state.set_state(State_timer.start_bot)
     else:
-        await message.answer('Для кого кнопки придуманы, друг?')
-
-@dp.message(State_timer.admin_token)
-async def load_tag(message: types.Message, state: FSMContext) -> None:
-    if message.text == admin_token:
-        await message.answer("Поздравляю, теперь ты админ", reply_markup=kb.keyboard_start_admin)
-        await state.set_state(State_timer.start_bot)
-        await db.grant_admin(message.chat.id)
-    elif message.text == 'назад':
-        await message.answer("Давай второй вопрос: Ты админ?", reply_markup=kb.keyboard_chose_admin)
-        await state.set_state(State_timer.admin)
-    else:
-        await message.answer("неправильный токен :(", kb.keyboard_before)
+        await message.answer("Ты используешь, неразрешенные символы.", reply_markup=ReplyKeyboardRemove())
 
  
 ## Функции работающие с расписанием (Зависит от того вошел он в них во время смены или нет)
@@ -467,7 +460,6 @@ async def remove_acc(message: types.Message, state: FSMContext):
 
 async def main() -> None:
     db.create_db()
-    db.insert_developers()
     scheduler_2_hours.start()
     scheduler_15_min.start()
     scheduler_before_shift.start()
@@ -477,7 +469,7 @@ async def main() -> None:
  
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    logging.basicConfig(level=logging.INFO, filename="py_log.log",filemode="w")
     asyncio.run(main())
     
     

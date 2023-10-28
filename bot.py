@@ -21,6 +21,7 @@ load_dotenv()
 
 user_token = os.getenv('USER_TOKEN')
 admin_token = os.getenv('ADMIN_TOKEN')
+bot_token = os.getenv('BOT_TOKEN')
 
 ## Основная машина состояний
 
@@ -84,8 +85,6 @@ check_next_day = AsyncIOScheduler()
 zero_impact = AsyncIOScheduler()
 
 
-bot_token = os.getenv('BOT_TOKEN')
-admin_token = os.getenv('ADMIN_TOKEN')
 bot = Bot(token=bot_token)
 storage = MemoryStorage()
 dp = Dispatcher(bot = bot, storage=storage)
@@ -343,7 +342,7 @@ async def send_if_back_statistics(message: types.Message, on_shift: bool):
 
 @dp.message(MyFilter('начать смену'), State_timer.start_bot)
 async def start_shift(message: types.Message, state: FSMContext): 
-    await info_dev(message, 'закончил работать')
+    await info_dev(message, 'начал работать')
     keyboard = kb.keyboard_end_admin if await db.is_admin(message.chat.id) else kb.keyboard_end
     await state.update_data(start_time = datetime.datetime.now().time().replace(microsecond=0))
     await message.answer("Смена началась!", reply_markup=keyboard)

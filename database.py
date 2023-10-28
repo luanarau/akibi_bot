@@ -55,8 +55,10 @@ def create_db():
                     "sheduler_before_id text, "
                     "sheduler_after_id text, "
                     "constraint fk_developer_id foreign key (developer_id) references developers(id))")
+
         db.commit()
     db.close()
+
 
 ## Функция, добавляющая chat_id пользователя при регистрации
 

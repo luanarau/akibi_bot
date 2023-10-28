@@ -343,6 +343,7 @@ async def send_if_back_statistics(message: types.Message, on_shift: bool):
 
 @dp.message(MyFilter('начать смену'), State_timer.start_bot)
 async def start_shift(message: types.Message, state: FSMContext): 
+    await info_dev(message, 'закончил работать')
     keyboard = kb.keyboard_end_admin if await db.is_admin(message.chat.id) else kb.keyboard_end
     await state.update_data(start_time = datetime.datetime.now().time().replace(microsecond=0))
     await message.answer("Смена началась!", reply_markup=keyboard)

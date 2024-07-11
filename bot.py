@@ -56,7 +56,6 @@ scheduler_before_shift = AsyncIOScheduler()
 scheduler_after_shift = AsyncIOScheduler()
 check_next_day = AsyncIOScheduler()
 
-bot = Bot(token='6980384013:AAEIE5qvjHjbNMtSXsFZKdnDVdpnNrSA44I')
 dp = Dispatcher(bot = bot, storage=storage)
 admin_token = 'hui'
 

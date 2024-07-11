@@ -8,7 +8,6 @@ import bot as bot
 host = 'localhost'
 port = '5432'
 user = 'postgres'
-password = 'bal040102'
 db_name = 'postgres'
 
 def create_db():
